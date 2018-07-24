@@ -44,7 +44,7 @@ def build_model(arch, num_labels, hidden_units):
     return model
 
 
-def load_data(data_dir):
+def train(data_dir, epochs, model, learning_rate):
     train_dir = data_dir + '/train'
     valid_dir = data_dir + '/valid'
     test_dir = data_dir + '/test'
@@ -87,10 +87,6 @@ def load_data(data_dir):
             image_datasets[x], batch_size=32, shuffle=True)
         for x in ['train', 'valid', 'test']
     }
-    return dataloaders
-
-
-def train(dataloaders, epochs, model, learning_rate):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(
         list(filter(lambda p: p.requires_grad, model.parameters())),
@@ -162,7 +158,26 @@ def train(dataloaders, epochs, model, learning_rate):
         print('{} Loss: {:.4f} Acc: {:.4f}'.format(phase, epoch_loss,
                                                    epoch_acc))
 
+    model.class_to_idx = image_datasets['train'].class_to_idx
+
+    checkpoint = {'class_to_idx': model.class_to_idx,'state_dict': model.state_dict()}
+
+    torch.save(checkpoint, 'checkpoint.pth')
+
+    phase = 'test'
+
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for inputs, labels in dataloaders[phase]:
+            inputs,labels = inputs.to(device),labels.to(device)        
+            outputs = model(inputs)
+            _, predicted = torch.max(outputs.data, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
+
+    print('Accuracy of the network on the test images: %d %%' % (
+        100 * correct / total))
 
 m = build_model(args.arch, args.num_labels, args.hidden_units)
-d = load_data(args.data_directory)
-train(d, args.epochs, m, args.learning_rate)
+train(args.data_directory, args.epochs, m, args.learning_rate)
