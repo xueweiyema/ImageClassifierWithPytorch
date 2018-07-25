@@ -12,7 +12,8 @@ import argparse
 parser = argparse.ArgumentParser(description='Flowers Classifer')
 
 parser.add_argument('data_directory', action="store")
-parser.add_argument('--save_dir', action="store", default='.')
+parser.add_argument(
+    '--save_dir', action="store", default='checkpoint_test.pth')
 parser.add_argument('--arch', action="store", default='vgg19')
 parser.add_argument('--learning_rate', action="store", default=0.001, type=int)
 parser.add_argument('--hidden_units', action="store", default='4096', type=int)
@@ -44,7 +45,7 @@ def build_model(arch, num_labels, hidden_units):
     return model
 
 
-def train(data_dir, epochs, model, learning_rate):
+def train(data_dir, epochs, model, learning_rate, save_dir, gpu):
     train_dir = data_dir + '/train'
     valid_dir = data_dir + '/valid'
     test_dir = data_dir + '/test'
@@ -98,7 +99,7 @@ def train(data_dir, epochs, model, learning_rate):
     print_every = 10
     steps = 0
 
-    if torch.cuda.is_available():
+    if torch.cuda.is_available() and gpu:
         print("Using GPU")
         device = torch.device("cuda:0")
         model.to('cuda')
@@ -158,11 +159,12 @@ def train(data_dir, epochs, model, learning_rate):
         print('{} Loss: {:.4f} Acc: {:.4f}'.format(phase, epoch_loss,
                                                    epoch_acc))
 
-    model.class_to_idx = image_datasets['train'].class_to_idx
+    # model.class_to_idx = image_datasets['train'].class_to_idx
 
-    checkpoint = {'class_to_idx': model.class_to_idx,'state_dict': model.state_dict()}
+    # checkpoint = {'class_to_idx': model.class_to_idx,'state_dict': model.state_dict()}
 
-    torch.save(checkpoint, 'checkpoint.pth')
+    # torch.save(checkpoint, 'checkpoint_test.pth')
+    torch.save(model, save_dir)
 
     phase = 'test'
 
@@ -170,14 +172,15 @@ def train(data_dir, epochs, model, learning_rate):
     total = 0
     with torch.no_grad():
         for inputs, labels in dataloaders[phase]:
-            inputs,labels = inputs.to(device),labels.to(device)        
+            inputs, labels = inputs.to(device), labels.to(device)
             outputs = model(inputs)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
 
-    print('Accuracy of the network on the test images: %d %%' % (
-        100 * correct / total))
+    print('Accuracy of the network on the test images: %d %%' %
+          (100 * correct / total))
+
 
 m = build_model(args.arch, args.num_labels, args.hidden_units)
-train(args.data_directory, args.epochs, m, args.learning_rate)
+train(args.data_directory, args.epochs, m, args.learning_rate, args.save_dir,args.gpu)
